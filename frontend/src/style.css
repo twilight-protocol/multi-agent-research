@@ -1,0 +1,157 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: system-ui, "Microsoft YaHei", sans-serif;
+  background: #f5f6f8;
+}
+
+.app {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100vh;
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.topbar h1 {
+  font-size: 18px;
+  margin: 0;
+}
+.main-row {
+  flex: 1;
+  display: flex;
+  gap: 12px;
+  min-height: 0;
+}
+.body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+.foot {
+  font-size: 12px;
+  color: #888;
+  word-break: break-all;
+}
+
+.panel {
+  background: #fff;
+  border: 1px solid #e3e5e8;
+  border-radius: 8px;
+  padding: 12px;
+}
+.upload {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.upload h2 {
+  font-size: 14px;
+  margin: 0 8px 0 0;
+}
+.upload p {
+  width: 100%;
+  margin: 0;
+  font-size: 12px;
+}
+
+.chat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+.list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px;
+}
+.empty,
+.hint {
+  color: #999;
+  font-size: 13px;
+}
+.typing {
+  color: #999;
+  font-size: 13px;
+}
+.msg {
+  display: flex;
+}
+.msg.user {
+  justify-content: flex-end;
+}
+.bubble {
+  max-width: 78%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+.msg.user .bubble {
+  background: #d8e8ff;
+}
+.msg.assistant .bubble {
+  background: #f0f1f3;
+}
+.err {
+  display: block;
+  color: #c0392b;
+  font-size: 12px;
+  margin-top: 6px;
+}
+.ok {
+  color: #1e8449;
+  font-size: 13px;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+}
+textarea {
+  flex: 1;
+  resize: none;
+  padding: 8px;
+  border: 1px solid #d5d8dc;
+  border-radius: 6px;
+  font: inherit;
+}
+button {
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.primary {
+  background: #2d7ff9;
+  color: #fff;
+}
+.danger {
+  background: #e74c3c;
+  color: #fff;
+}
+.ghost {
+  background: transparent;
+  border: 1px solid #ccc;
+}

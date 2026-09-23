@@ -1,0 +1,40 @@
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# ---------- 敏感信息（绝不提交）----------
+.env
+*.key
+
+# ---------- 个人文档（仅本地，不随项目发布）----------
+AI教练指令.md
+求职计划.md
+INTERVIEW.md
+部署笔记.md
+scripts/
+
+# ---------- 运行时数据（二进制 / 大文件，不进版本库）----------
+data/chroma_db/
+data/uploads/
+data/*.db
+data/*.sqlite3
+
+# ---------- 前端 ----------
+node_modules/
+dist/
+
+# ---------- 部署产物 ----------
+*.tar
+docker-compose.override.yml
+
+# ---------- 编辑器 / 系统 ----------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ---------- 日志 ----------
+*.log
