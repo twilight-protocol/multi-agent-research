@@ -16,3 +16,7 @@ pypdf==6.17.0
 
 # ===== 配置 =====
 python-dotenv
+
+# ===== Web 工具 =====
+tavily-python
+beautifulsoup4
