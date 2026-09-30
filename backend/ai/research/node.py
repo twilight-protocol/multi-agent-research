@@ -1,14 +1,13 @@
 from backend.ai.research.state import ResearchState
 from backend.ai.vectorstore import get_vectorstore
-from backend.config import RAG_TOP_K, MAX_DISTANCE,DASHSCOPE_API_KEY,DASHSCOPE_BASE_URL,LLM_MODEL
+from backend.config import RAG_TOP_K, MAX_DISTANCE,MAX_REVISIONS
 from backend.ai.research.tools import web_search
 from backend.ai.llm import llm
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from langchain_openai import ChatOpenAI
+from langgraph.types import interrupt
 from pydantic import BaseModel, Field
 from typing import Literal
-import re
 
 def search_node(state:ResearchState):
     blocks: list[str] = []
@@ -126,9 +125,9 @@ def critique_node(state:ResearchState):
     })
     issues = [f"[{it.target}] {it.problem} -> {it.fix}"for it in result.issues]
     if not issues:
-        return {"verdict":"pass","issues":[],"critique":"审查未发现需要修改的问题"}
+        return {"verdict":"pass","issues":[],"critique":"审查未发现需要修改的问题","stop_reason":"passed"}
     if result.verdict == "pass":
-        return {"verdict":"pass","issues":[],"critique":"审查通过（已忽略非阻塞建议）"}
+        return {"verdict":"pass","issues":[],"critique":"审查通过（已忽略非阻塞建议）","stop_reason":"passed"}
     return {"verdict":"revise","issues":issues,"critique":"\n".join(issues)}
 
 REVISE_PROMPT = (
@@ -155,7 +154,31 @@ def revise_node(state: ResearchState):
         "report": state["report"],
         "issues": "\n".join(state["issues"]),
     })
+    count = state["revision_count"] + 1
     return {
         "report": report,
-        "revision_count": state["revision_count"] + 1,
+        "revision_count": count,
+        "stop_reason":"limit_reached" if count >= MAX_REVISIONS else state.get("stop_reason","")
     }
+
+def human_review_node(state:ResearchState)->dict:
+    decision = interrupt({
+        "type":"draft_review",
+        "question":state["question"],
+        "draft":state["report"],
+        "limit_reached": state["revision_count"] >= MAX_REVISIONS,
+        "expect":'{"action":"approve" | "revise", "comment":"修改要求"}'
+
+    })
+
+    #防呆
+    action = (decision or {}).get("action") or "approve"
+    comment = ((decision or {}).get("comment") or "").strip()
+
+    if action != "approve" and comment:
+        return{
+            "human_action":"revise",
+            "human_feedback":comment,
+            "issues":[f"[人工]{comment}"],
+        }
+    return  {"human_action":"approve","human_feedback":comment}

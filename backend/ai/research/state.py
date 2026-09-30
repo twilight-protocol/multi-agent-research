@@ -11,4 +11,7 @@ class ResearchState(TypedDict):
     issues:list[str]
     verdict:str
     revision_count:int
+    human_action:str
+    human_feedback:str
+    stop_reason:str
     

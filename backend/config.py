@@ -43,3 +43,7 @@ MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB","20"))
 MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
 # 自审循环硬上限：judge 不会主动说停，靠代码兜底防振荡
 MAX_REVISIONS = int(os.getenv("MAX_REVISIONS", "2"))
+#人工审查模式
+HUMAN_REVIEW_MODE = os.getenv("HUMAN_REVIEW_MODE", "always")
+# 人工介入后可额外推动的修订次数：让"人比 AI 多一次机会"，同时兜住无限循环
+HUMAN_EXTRA_REVISIONS = int(os.getenv("HUMAN_EXTRA_REVISIONS", "1"))
