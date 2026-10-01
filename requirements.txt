@@ -9,6 +9,9 @@ langgraph==1.2.11
 langchain-openai==1.6.0
 langchain-chroma==1.1.0
 langchain-text-splitters
+# 断点落盘（人工终审要跨请求 resume，内存版会在重启/多 worker 下静默失效）
+langgraph-checkpoint-sqlite==3.1.1
+aiosqlite
 
 # ===== RAG =====
 chromadb==1.5.9

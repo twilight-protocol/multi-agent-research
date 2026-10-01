@@ -21,7 +21,7 @@ def revise_router(state:ResearchState)->str:
         return "human"
     return "critique"
 
-def build_graph():
+def build_graph(checkpointer):
     builder = StateGraph(ResearchState)
     builder.add_node("search",search_node)
     builder.add_node("analyze",analyze_node)
@@ -36,7 +36,7 @@ def build_graph():
     builder.add_conditional_edges("critique",critique_router,{"revise":"revise","human":"human_review","done":END})
     builder.add_conditional_edges("human_review",human_router,{"revise":"revise","done":END})
     builder.add_conditional_edges("revise",revise_router,{"critique":"critique","human":"human_review","done":END})
-    return builder.compile(checkpointer=InMemorySaver())
+    return builder.compile(checkpointer=checkpointer)
 
 
 

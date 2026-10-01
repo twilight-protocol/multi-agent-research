@@ -1,0 +1,806 @@
+/* ============ 主题令牌：浅色专业风 ============ */
+/* 单一蓝色做强调，其余靠「灰阶 + 语义色」拉开层级：
+   专业感来自克制的对比，不来自装饰 */
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --bg-soft: #ffffff;
+  --fg: #1a2432;
+  --muted: #667085;
+  --line: #e3e7ed;
+  --card: var(--surface);
+  --accent: #2f6fed;
+  /* 与 accent 同一色：出处/标签统一成蓝色，不再两种色混搭 */
+  --accent-2: #2f6fed;
+  --accent-soft: #eef3fe;
+  --accent-line: #d6e2fd;
+  /* 多个规则用 var(--grad) 做底；改成纯色后它们自动变成扁平蓝，不破坏结构 */
+  --grad: #2f6fed;
+  --ok: #0f9d6e;
+  --wait: #b45309;
+  --err: #cf3346;
+  --shadow:
+    0 1px 3px rgba(16, 24, 40, 0.06), 0 10px 26px -18px rgba(16, 24, 40, 0.22);
+  --mono: "Cascadia Code", "JetBrains Mono", Consolas, "Courier New", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--fg);
+  background: var(--bg);
+  font:
+    15px/1.7 -apple-system,
+    "Segoe UI",
+    "Microsoft YaHei",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.page {
+  position: relative;
+  z-index: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 26px 22px 70px;
+}
+
+/* 顶栏 */
+.topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.topbar h1 {
+  margin: 0 0 6px;
+  font-size: 25px;
+  font-weight: 650;
+  letter-spacing: -0.4px;
+  color: var(--fg);
+}
+.sub {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+.right-side {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+
+/* 状态灯：跑动时向外扩散一圈，是「系统活着」的最小信号 */
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--accent);
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 4px 11px;
+  white-space: nowrap;
+}
+.live i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 0 currentColor;
+  animation: ring 1.4s ease-out infinite;
+}
+.live.warn-live {
+  color: var(--wait);
+  border-color: #f5d9ae;
+  background: #fdf6ea;
+}
+@keyframes ring {
+  70% {
+    box-shadow: 0 0 0 6px rgba(47, 111, 237, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(47, 111, 237, 0);
+  }
+}
+
+.tid {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  border-radius: 7px;
+  padding: 4px 9px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+/* 提问区：左侧一根渐变竖线点题 */
+.ask {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  margin: 20px 0;
+  align-items: flex-end;
+  padding-left: 14px;
+}
+.ask::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 3px;
+  bottom: 3px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--grad);
+}
+.ask textarea {
+  flex: 1;
+  resize: vertical;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  font: inherit;
+  color: inherit;
+}
+.ask textarea::placeholder {
+  color: #98a2b3;
+}
+.ask textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(47, 111, 237, 0.14);
+}
+
+button {
+  font: inherit;
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    transform 0.15s,
+    box-shadow 0.2s,
+    border-color 0.2s,
+    background 0.2s,
+    color 0.2s;
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.primary {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
+}
+.primary:not(:disabled):hover {
+  background: #2a63d4;
+}
+.ghost {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--fg);
+}
+.ghost:not(:disabled):hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+/* 小尺寸按钮：报告标题上的「复制 / 打印」 */
+.mini {
+  padding: 3px 10px;
+  font-size: 13px;
+  font-weight: 400;
+  border-radius: 7px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+.mini:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.spacer {
+  flex: 1;
+}
+
+/* 两栏 */
+.cols {
+  display: grid;
+  grid-template-columns: 312px 1fr;
+  gap: 18px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .cols {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 左栏跟随滚动，长报告往下看时进度条不丢 */
+.left {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: sticky;
+  top: 20px;
+}
+@media (max-width: 900px) {
+  .left {
+    position: static;
+  }
+}
+
+/* 面板：实心卡片 + 淡描边，不用玻璃拟态 */
+.panel {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 15px 17px;
+  box-shadow: var(--shadow);
+  transition: border-color 0.2s;
+}
+.panel:hover {
+  border-color: #cfd6e2;
+}
+.panel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 13px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+/* 标题前一根蓝色短线 */
+.panel-title::before {
+  content: "";
+  flex: none;
+  width: 14px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+.panel-title:not(:first-child) {
+  margin-top: 22px;
+}
+.tag {
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  padding: 1px 9px;
+}
+.sub-title {
+  font-size: 14px;
+  color: var(--muted);
+  margin: 14px 0 6px;
+}
+.muted {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* 空状态：同心圆靶心，比虚线框更像「待启动」 */
+.placeholder {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  border: 1px dashed #d9dee8;
+  border-radius: 14px;
+  padding: 64px 24px;
+  text-align: center;
+  color: var(--muted);
+  background: var(--surface);
+}
+.placeholder::before {
+  content: "";
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid var(--accent-line);
+  box-shadow: inset 0 0 0 8px var(--accent-soft);
+}
+
+.error {
+  display: flex;
+  gap: 8px;
+  color: #a3253a;
+  background: #fdf2f4;
+  border: 1px solid #f6d2d9;
+  border-radius: 10px;
+  padding: 9px 13px;
+  margin: 14px 0;
+  font-size: 14px;
+}
+.warn {
+  color: #8a4b08;
+  background: #fdf6ea;
+  border: 1px solid #f3dfc0;
+  border-radius: 10px;
+  padding: 9px 13px;
+  font-size: 13.5px;
+  margin: 0 0 12px;
+}
+
+/* ============ 六节点流水线 ============ */
+.pipe {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.node {
+  position: relative;
+  display: flex;
+  gap: 11px;
+  padding-bottom: 16px;
+}
+.node:last-child {
+  padding-bottom: 0;
+}
+/* 连接轨道：走过的段落带蓝色，越往后越淡 */
+.node:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 19px;
+  bottom: 0;
+  width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, rgba(47, 111, 237, 0.45), var(--line));
+}
+.dot {
+  position: relative;
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 5px;
+  border-radius: 50%;
+  border: 2px solid #cfd6e2;
+  background: var(--surface);
+  z-index: 1;
+  transition:
+    background 0.25s,
+    border-color 0.25s,
+    box-shadow 0.25s;
+}
+.node .name {
+  font-size: 14.5px;
+}
+.node .desc {
+  font-size: 13px;
+  color: var(--muted);
+}
+.node.idle .name {
+  color: var(--muted);
+}
+.node.idle .desc {
+  opacity: 0.5;
+}
+/* 已完成：绿色实心 */
+.node.done .dot {
+  border-color: var(--ok);
+  background: var(--ok);
+  box-shadow: 0 0 0 3px #e7f6f1;
+}
+.node.done .name {
+  color: #0b6b4c;
+}
+/* 执行中：蓝色光环反复扩散 */
+.node.active .dot {
+  border-color: var(--accent);
+  background: var(--accent);
+  animation: halo-blue 1.5s ease-out infinite;
+}
+.node.active .name {
+  color: #16202e;
+  font-weight: 600;
+}
+/* 等人工：琥珀色，和「AI 自己在跑」一眼区分 */
+.node.wait .dot {
+  border-color: var(--wait);
+  background: var(--wait);
+  animation: halo-amber 1.6s ease-out infinite;
+}
+.node.wait .name {
+  color: var(--wait);
+  font-weight: 600;
+}
+@keyframes halo-blue {
+  0% {
+    box-shadow: 0 0 0 0 rgba(47, 111, 237, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 9px rgba(47, 111, 237, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(47, 111, 237, 0);
+  }
+}
+@keyframes halo-amber {
+  0% {
+    box-shadow: 0 0 0 0 rgba(180, 83, 9, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 9px rgba(180, 83, 9, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(180, 83, 9, 0);
+  }
+}
+/* 循环次数徽标：revise ×2 就是「自审循环转了两轮」的可视证据 */
+.loop {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: #fff;
+  background: var(--accent);
+}
+
+/* ============ 执行日志：代码块风 ============ */
+.log {
+  list-style: none;
+  margin: 0;
+  padding: 10px 12px;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.8;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  max-height: 220px;
+  overflow: auto;
+}
+.log li {
+  display: flex;
+  gap: 7px;
+}
+.log li::before {
+  content: "›";
+  color: var(--accent);
+}
+.seq {
+  flex: none;
+  min-width: 15px;
+  text-align: right;
+  color: #98a2b3;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 统一滚动条 */
+.log::-webkit-scrollbar,
+.md::-webkit-scrollbar,
+.issues::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.log::-webkit-scrollbar-thumb,
+.md::-webkit-scrollbar-thumb,
+.issues::-webkit-scrollbar-thumb {
+  background: #cfd6e2;
+  border-radius: 4px;
+}
+
+/* ============ 报告正文 ============ */
+.md {
+  font-size: 15px;
+  color: #2b3648;
+}
+.md h1,
+.md h2,
+.md h3,
+.md h4 {
+  margin: 20px 0 8px;
+  font-size: 17px;
+  color: #101828;
+}
+/* 章节标题压一条蓝色短线，让报告「有版面」 */
+.md h2 {
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+  position: relative;
+}
+.md h2::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: 46px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.md h2:first-child {
+  margin-top: 0;
+}
+.md p {
+  margin: 7px 0;
+}
+.md ul {
+  margin: 7px 0;
+  padding-left: 4px;
+  list-style: none;
+}
+.md li {
+  position: relative;
+  margin: 6px 0;
+  padding-left: 16px;
+}
+/* 列表符做成小三角，比默认圆点利落 */
+.md li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 9px;
+  width: 0;
+  height: 0;
+  border-left: 5px solid var(--accent);
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+}
+/* 出处：等宽字体 + 蓝色，一眼能和正文区分 */
+.md cite {
+  font-style: normal;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  border-radius: 5px;
+  padding: 1px 6px;
+  margin-left: 5px;
+  white-space: nowrap;
+}
+/* 网页出处：白底虚线。和本地出处同色系，靠形态区分，不再引入第二种颜色 */
+.md cite.web {
+  background: var(--surface);
+  border-style: dashed;
+}
+.md cite a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dotted currentColor;
+}
+.md cite a:hover {
+  color: #1d4fbf;
+  border-bottom-style: solid;
+}
+/* 模型自附批注（如 [analysis note: ...]）：弱化成灰，一眼区别于正文和出处 */
+.md .mnote {
+  font-size: 12.5px;
+  color: var(--muted);
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 1px 6px;
+  margin-left: 5px;
+}
+
+/* ============ 人工终审 ============ */
+.review {
+  border-color: #f0d9b4;
+}
+.review:hover {
+  border-color: #e6c893;
+}
+.review > .panel-title::before {
+  background: var(--wait);
+}
+.review .issues {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+  max-height: 200px;
+  overflow: auto;
+}
+.review .issues li {
+  margin: 5px 0;
+  padding: 7px 10px 7px 24px;
+  position: relative;
+  background: #fdf6ea;
+  border-left: 2px solid var(--wait);
+  border-radius: 0 8px 8px 0;
+  color: #7a4409;
+}
+.review .issues li::before {
+  content: "!";
+  position: absolute;
+  left: 9px;
+  color: var(--wait);
+  font-weight: 700;
+}
+/* 草稿嵌在终审卡里：浅灰底，制造层级 */
+.review .report {
+  margin-top: 14px;
+  background: #fbfcfd;
+  box-shadow: none;
+}
+.decide {
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 13px;
+}
+.decide textarea {
+  width: 100%;
+  resize: vertical;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  font: inherit;
+  color: inherit;
+  background: var(--surface);
+}
+.decide textarea::placeholder {
+  color: #98a2b3;
+}
+.decide textarea:focus {
+  outline: none;
+  border-color: var(--wait);
+  box-shadow: 0 0 0 3px rgba(180, 83, 9, 0.12);
+}
+.btns {
+  display: flex;
+  gap: 9px;
+  margin-top: 11px;
+}
+
+/* ============ 上传：可拖拽投放区 ============ */
+.drop {
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  padding: 20px 14px;
+  text-align: center;
+  border: 1.5px dashed #d9dee8;
+  border-radius: 11px;
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    background 0.2s,
+    transform 0.15s;
+}
+.drop:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+/* 拖到上面时整块亮起并轻微放大 */
+.drop.over {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  transform: scale(1.015);
+}
+.drop.busy {
+  cursor: progress;
+  border-style: solid;
+  border-color: transparent;
+  /* 内白底 + 外层蓝边：比纯蓝块更稳，也不抢眼 */
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    var(--accent) border-box;
+}
+.drop-icon {
+  font-size: 21px;
+  color: var(--accent);
+  line-height: 1;
+}
+.drop-main {
+  font-size: 14px;
+  color: var(--fg);
+}
+.drop-sub {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+/* 真正的 file input 藏起来，点击交给上面的投放区触发 */
+.hidden-input {
+  display: none;
+}
+
+.tip {
+  margin: 9px 0 0;
+  font-size: 12.5px;
+}
+.files {
+  list-style: none;
+  margin: 11px 0 0;
+  padding: 0;
+  font-size: 13.5px;
+}
+.files li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+}
+/* 每行前加个绿色圆点 = 已入库 */
+.files li::before {
+  content: "";
+  flex: none;
+  align-self: center;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--ok);
+}
+.fname {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fmeta {
+  flex: none;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============ 打印 / 导出 PDF ============ */
+@media print {
+  body {
+    background: #fff;
+    color: #111;
+  }
+  .topbar,
+  .ask,
+  .left,
+  .mini,
+  .error {
+    display: none !important;
+  }
+  .cols {
+    grid-template-columns: 1fr;
+  }
+  .panel {
+    background: none;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+  }
+  .md,
+  .md h1,
+  .md h2,
+  .md h3,
+  .md h4 {
+    color: #111;
+  }
+  .md cite {
+    color: #444;
+    background: #f0f0f0;
+    border-color: #ddd;
+  }
+}
+
+/* 系统开了「减少动态效果」就停掉所有动画 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

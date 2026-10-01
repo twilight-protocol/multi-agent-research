@@ -1,17 +1,3 @@
-"""进程内 IP 限流。
-
-为什么需要：`/api/chat/stream` 和 `/api/upload` 会在服务端消耗 DashScope 额度。线上是
-公开地址，任何人都能直接打接口；没有限流的话，一个脚本就能把额度刷完，Demo 当场失效。
-
-为什么用内存不用 Redis：部署形态是「单容器 + 单 worker」（见 Dockerfile 注释），
-内存计数不会出现「A 进程记 3 次、B 进程记 3 次」的分裂。免费档上，少引入一个
-外部组件就少一个上线失败点。
-
-已知局限（面试可讲）：
-- 一旦开多 worker / 多副本，内存计数不共享，要换成 Redis 的 INCR + EXPIRE；
-- 计数按 IP 增长，靠 _prune 在超阈值时清理过期窗口，避免 dict 无限膨胀。
-"""
-
 import os
 import time
 from collections import defaultdict, deque
@@ -22,12 +8,7 @@ _PRUNE_THRESHOLD = 5000  # 单个限流器的记录数超过这个值就清理�
 
 
 def _client_ip(request: Request) -> str:
-    """取真实客户端 IP。
-
-    平台（Render / Railway / nginx）在应用前面加了一层代理，此时
-    request.client.host 拿到的是代理 IP → 所有用户共用一个配额，限流等于没做。
-    所以要优先取 X-Forwarded-For 的第一个地址。
-    """
+    """取真实客户端 IP。"""
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
         return forwarded.split(",")[0].strip()
@@ -36,7 +17,6 @@ def _client_ip(request: Request) -> str:
 
 def make_limiter(max_requests: int, window_sec: int, name: str):
     """生成一个「FastAPI 依赖」形式的限流器。
-
     每个限流器持有独立计数桶：聊天按次限、上传按份限，两者互不挤占额度。
     """
 
@@ -65,11 +45,11 @@ def make_limiter(max_requests: int, window_sec: int, name: str):
     return dependency
 
 
-# 聊天：一次请求 ≈ 1~3 次 LLM 调用，10 次/分足够正常点着玩
-chat_limiter = make_limiter(
-    int(os.getenv("RATE_LIMIT_MAX", "10")),
-    int(os.getenv("RATE_LIMIT_WINDOW", "60")),
-    "chat",
+# 研究：一次请求要跑 4~8 次 LLM 调用（检索→分析→写作→自审→最多 3 轮修订），比聊天重得多
+research_limiter = make_limiter(
+    int(os.getenv("RESEARCH_RATE_LIMIT_MAX", "5")),
+    int(os.getenv("RESEARCH_RATE_LIMIT_WINDOW", "60")),
+    "research",
 )
 
 # 上传：一份 PDF 会触发 N/10 次 Embedding 调用，解析本身还吃 CPU 和内存，要更紧

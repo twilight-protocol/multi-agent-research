@@ -1,7 +1,6 @@
 from backend.ai.research.state import ResearchState
-from backend.ai.vectorstore import get_vectorstore
-from backend.config import RAG_TOP_K, MAX_DISTANCE,MAX_REVISIONS
-from backend.ai.research.tools import web_search
+from backend.config import MAX_REVISIONS
+from backend.ai.research.tools import web_search, search_local
 from backend.ai.llm import llm
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -10,14 +9,7 @@ from pydantic import BaseModel, Field
 from typing import Literal
 
 def search_node(state:ResearchState):
-    blocks: list[str] = []
-
-    hits = get_vectorstore().similarity_search_with_score(state["question"],k=RAG_TOP_K)
-    kept = [(d,s) for d,s in hits if s <= MAX_DISTANCE]
-    blocks.extend(
-        f"[{doc.metadata.get('source','未知文档')} 第{doc.metadata.get('page','?')}页]\n{doc.page_content}"
-        for doc,_score in kept
-    )
+    blocks: list[str] = search_local(state["question"])
 
     web = web_search.invoke({"query":state["question"]})
     if not web.startswith(("搜索失败","未搜索到")):
@@ -52,13 +44,18 @@ REPORT_PROMPT = (
     "你是行业研究员。基于分析笔记撰写结构化报告。"
     "每条关键发现若在笔记中有 [文件名 第N页] 或 [web: url] 出处，"
     "必须原样放进该条的 evidence 字段，不得新增笔记之外的出处，也不要把出处写进 point。"
+    "evidence 必须拆开写：每个数组元素只放一条出处，禁止用「；」把多条出处拼进同一个元素；"
+    "页码范围照抄笔记原文（如 第1-2页）。"
+    "summary 与 conclusion 是纯文字段落，禁止出现任何方括号——"
+    "既不要写 [文件名 第N页]，也不要写 [analysis note: ...] 这类自附批注；"
+    "信息缺失就用自然语言说「当前信息未说明…」。"
 )
 
 class Finding(BaseModel):
     point:str = Field(description="一条关键发现，一到两句话")
     evidence:list[str] = Field(
         default_factory=list,
-        description="支撑该发现的出处，必须原样引用 [文件名 第N页] 或 [web: url]；没有出处就留空数组"
+        description="支撑该发现的出处，一条一个元素，禁止用分号把多条合并；必须原样引用 [文件名 第N页] 或 [web: url]；没有出处就留空数组"
     )
 class ReportSchema(BaseModel):
     summary: str = Field(description="概述，3~5 句")
@@ -135,6 +132,8 @@ REVISE_PROMPT = (
     "修改优先选：为断言补上分析笔记里已有的出处；若笔记里也无出处可补，"
     "就删掉该断言，或降级写成「尚无资料支持」。"
     "禁止新增分析笔记之外的出处，禁止新增清单之外的内容。"
+    "出处照原样保留，一个 evidence 元素只放一条，不要用分号合并；"
+    "概述与结论是纯文字，里面不要出现方括号或自附批注。"
     "只输出 Markdown 报告正文，包含 ## 概述 / ## 关键发现 / ## 结论 三个标题，"
     "不要任何前言、解释或结束语。"
 )
