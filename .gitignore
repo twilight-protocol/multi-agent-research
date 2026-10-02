@@ -17,6 +17,7 @@ INTERVIEW.md
 面试台账.md
 scripts/
 
+
 # ---------- 运行时数据（二进制 / 大文件，不进版本库）----------
 data/chroma_db/
 data/uploads/
