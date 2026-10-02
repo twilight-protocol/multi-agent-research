@@ -15,9 +15,12 @@ FROM python:3.14-slim AS runtime
 WORKDIR /app
 
 # PYTHONUNBUFFERED：否则日志攒在缓冲区里，容器挂了看不到任何报错
+# PIP_INDEX_URL：容器内直连 pypi.org 在国内服务器上会超时/极慢，改走阿里云镜像
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/ \
+    PIP_TRUSTED_HOST=mirrors.aliyun.com
 
 # 依赖单独一层：requirements.txt 不变时，改后端代码不会触发重新装包
 COPY requirements.txt ./
