@@ -1,0 +1,25 @@
+# 构建上下文里不需要的一切：context 越小，平台构建越快
+.git/
+.gitignore
+.vscode/
+.idea/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# 运行时数据：chroma_db 可能几十 MB，绝不能进镜像
+data/
+
+# 前端依赖与产物：镜像里由 stage 1 现构建
+frontend/node_modules/
+frontend/dist/
+
+# 敏感信息：只走 compose 的 env_file，任何情况下不进镜像
+.env
+*.key
+
+# 本地脚本与文档：backend 不 import scripts/，镜像里用不到
+scripts/
+*.md
+test.pdf
