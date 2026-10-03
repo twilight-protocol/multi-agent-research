@@ -9,7 +9,8 @@ from pydantic import BaseModel, Field
 from typing import Literal
 
 def search_node(state:ResearchState):
-    blocks: list[str] = search_local(state["question"])
+    # 检索范围跟着提问的人走：只捞这个人自己传进向量库的文档
+    blocks: list[str] = search_local(state["question"],state["user_id"])
 
     web = web_search.invoke({"query":state["question"]})
     if not web.startswith(("搜索失败","未搜索到")):

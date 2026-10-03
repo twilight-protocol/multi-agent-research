@@ -17,6 +17,9 @@ DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 COLLECTION_NAME = "knowledge_base"
 # 检索返回条数上限，也顺带限制住了放宽阈值的副作用
 RAG_TOP_K = 4
+# 向量库的取数条数：多租户后检索要带 where={"user_id":…}，而 Chroma 的 where 是
+# 「先取 k 条再过滤」（后置过滤），筛完可能不足 4 条 → 先超取再截断
+RAG_FETCH_K = int(os.getenv("RAG_FETCH_K", str(RAG_TOP_K * 2)))
 # 相似度阈值：score=2-2cos 的 l2 平方距离，0.8≈cos 0.60；若重建库改成 cosine 度量则此值立即失效
 MAX_DISTANCE = 0.8 
 # 单次 embedding 请求最大条数：text-embedding-v3 超过 10 条报 400

@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from "vue";
+import { getUserId } from "../api/identity.js";
 
 // 只用于前端提前拦一次，给出更快的反馈；后端 MAX_UPLOAD_BYTES 才是真正的守门人
 const MAX_MB = 20;
@@ -47,7 +48,12 @@ async function send(file) {
   uploading.value = true;
   try {
     // 关键：不要手写 Content-Type，要让浏览器自动带上 multipart 的 boundary
-    const res = await fetch("/api/upload", { method: "POST", body: fd });
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      // 告诉后端这份文件算谁的
+      headers: { "X-User-Id": getUserId() },
+      body: fd,
+    });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
     // 返回 { file, stored_as, pages, chunks }

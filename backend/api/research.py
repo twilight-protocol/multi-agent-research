@@ -1,12 +1,13 @@
 import json
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from langgraph.types import Command
 from pydantic import BaseModel
 
 from backend.ai.research.service import get_graph
+from backend.identity import current_user
 from backend.ratelimit import research_limiter
 
 router = APIRouter(prefix="/api/research", tags=["research"])
@@ -38,9 +39,11 @@ class ResumeRequest(BaseModel):
     comment: str = ""
 
 
-def _init_state(question: str) -> dict:
+def _init_state(question: str, user_id: str) -> dict:
     return {
         "question": question,
+        # 检索范围：search_node 只用自己这个用户的文档
+        "user_id": user_id,
         "search_results": [],
         "analysis": "",
         "report": "",
@@ -54,6 +57,22 @@ def _init_state(question: str) -> dict:
     }
 
 
+def scoped_thread_id(user_id: str, raw: str) -> str:
+    """把用户归属编进 thread_id："{user_id}:{raw}"。
+
+    为什么不用「查表看这个 thread 属于谁」：checkpointer 的键就是 thread_id，
+    前缀法把归属变成**可从 ID 直接判定**的属性，不需要额外查询，也不可能漏改。
+    代价：ID 变长，且换用户就找不回旧会话（这本来就是期望行为）。
+    """
+    return f"{user_id}:{raw}"
+
+
+def _require_own_thread(user_id: str, thread_id: str) -> None:
+    """resume 前校验归属：别人的 thread_id 一概拒绝。"""
+    if not thread_id.startswith(f"{user_id}:"):
+        raise HTTPException(status_code=403, detail="无权访问该会话")
+
+
 async def _stream(graph_input, thread_id: str):
     graph = get_graph()          
     cfg = {"configurable": {"thread_id": thread_id}}
@@ -63,6 +82,9 @@ async def _stream(graph_input, thread_id: str):
                 st = await graph.aget_state(cfg)
                 yield sse_frame("interrupt", {
                     **chunk["__interrupt__"][0].value,
+                    #必须回传 thread_id：前端手上那份是「未加前缀的原始 id」，
+                    #拿它去 /resume 会被 403 挡住（多租户后才有的坑）
+                    "thread_id": thread_id,
                     "issues": st.values.get("issues", []),
                     "revision_count": st.values.get("revision_count", 0),
                     "stop_reason": st.values.get("stop_reason", ""),
@@ -84,18 +106,23 @@ async def _stream(graph_input, thread_id: str):
 
 
 @router.post("/stream", dependencies=[Depends(research_limiter)])
-async def research_stream(req: ResearchRequest):
-    thread_id = req.thread_id.strip() or uuid.uuid4().hex[:12]
+async def research_stream(req: ResearchRequest, user_id: str = Depends(current_user)):
+    raw = req.thread_id.strip() or uuid.uuid4().hex[:12]
+    thread_id = scoped_thread_id(user_id, raw)
     return StreamingResponse(
-        _stream(_init_state(req.question), thread_id),
+        _stream(_init_state(req.question, user_id), thread_id),
         headers={"Cache-Control": "no-cache", "x-Accel-Buffering": "no"},
         media_type="text/event-stream",
     )
 
 
 @router.post("/resume", dependencies=[Depends(research_limiter)])
-async def research_resume(req: ResumeRequest):
+async def research_resume(req: ResumeRequest, user_id: str = Depends(current_user)):
+    _require_own_thread(user_id, req.thread_id)
     decision = {"action": req.action, "comment": req.comment}
+    # 不需要重新注入 user_id：state 里那份已经落在 checkpoint 里了，
+    # resume 时 LangGraph 会把断点状态整个恢复（所以校验归属才是必需的，
+    # 否则拿到别人的 thread_id 就能读别人的状态）
     return StreamingResponse(
         _stream(Command(resume=decision), req.thread_id),
         headers={"Cache-Control": "no-cache", "x-Accel-Buffering": "no"},

@@ -48,6 +48,9 @@ const handlers = {
   progress: (d) => log.value.push(d),
   interrupt: (d) => {
     review.value = d;
+    // 必须收下带前缀的 thread_id：手上这份还是「原始 id」，
+    // 直接拿去 /resume 会因归属对不上被 403（多租户改造后才有的要求）
+    threadId.value = d.thread_id ?? threadId.value;
     waiting.value = true;
     running.value = false;
   },

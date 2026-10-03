@@ -3,6 +3,8 @@
 // 事件名与 backend/api/research.py 的 sse_frame() 一一对应：
 // progress | interrupt | done | error
 
+import { getUserId } from "./identity.js";
+
 /**
  * 发起一次研究流，按事件名回调。
  * @param {string} path  接口路径，如 "/api/research/stream"
@@ -15,6 +17,8 @@ export async function streamResearch(path, body, on) {
     headers: {
       "Content-Type": "application/json",
       Accept: "text/event-stream",
+      // 后端靠它决定检索范围与 thread_id 归属
+      "X-User-Id": getUserId(),
     },
     body: JSON.stringify(body),
   });

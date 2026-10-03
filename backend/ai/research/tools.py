@@ -5,7 +5,7 @@ import httpx
 import re
 
 from backend.ai.vectorstore import get_vectorstore
-from backend.config import (TAVILY_API_KEY, WEB_SEARCH_MAX_RESULTS, WEB_FETCH_MAX_CHARS,WEB_FETCH_TIMEOUT, RAG_TOP_K, MAX_DISTANCE)
+from backend.config import (TAVILY_API_KEY, WEB_SEARCH_MAX_RESULTS, WEB_FETCH_MAX_CHARS,WEB_FETCH_TIMEOUT, RAG_TOP_K, RAG_FETCH_K, MAX_DISTANCE)
 
 _client:TavilyClient | None = None
 
@@ -66,12 +66,19 @@ def fetch_url(url:str)->str:
     return f"[web:{url}]\n{text[:WEB_FETCH_MAX_CHARS]}"
 
 
-def search_local(query: str) -> list[str]:
+def search_local(query: str, user_id: str) -> list[str]:
     """本地向量库检索，返回已渲染好出处的片段列表。
+
+    user_id 是必需参数而不是可选参数：漏传 = 检索范围变成全局，
+    那就等于隔离失效，所以不给默认值，让它在调用处强制暴露出来。
     """
-    hits = get_vectorstore().similarity_search_with_score(query, k=RAG_TOP_K)
+    # where 是「后置过滤」：Chroma 先按向量距离取 k 条，再用 where 筛。
+    # 所以这里取 RAG_FETCH_K（=2×TOP_K）再按阈值筛 + 截断，避免筛完不够条数。
+    hits = get_vectorstore().similarity_search_with_score(
+        query, k=RAG_FETCH_K, filter={"user_id": user_id}
+    )
+    kept = [doc for doc, score in hits if score <= MAX_DISTANCE][:RAG_TOP_K]
     return [
         f"[{doc.metadata.get('source','未知文档')} 第{doc.metadata.get('page','?')}页]\n{doc.page_content}"
-        for doc, score in hits
-        if score <= MAX_DISTANCE
+        for doc in kept
     ]
