@@ -121,7 +121,7 @@ async function decide({ action, comment }) {
       <textarea
         v-model="question"
         rows="2"
-        placeholder="输入要研究的行业 / 公司 / 问题，例如：2025 年国内储能行业的竞争格局与主要玩家？"
+        placeholder="输入要研究的问题，例如：2025 年国内储能行业的竞争格局与主要玩家？"
         @keydown.ctrl.enter="start"
       ></textarea>
       <button

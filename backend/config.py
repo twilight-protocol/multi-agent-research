@@ -41,6 +41,17 @@ WEB_FETCH_TIMEOUT = 10
 MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB","20"))
 # 上传上限的字节形式，供接口层直接比较
 MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
+# 上传配额：单文件上限只能挡住"一次传个大的"，挡不住"传 1000 次小的"
+# 磁盘只增不减（无租户、无 TTL），小机器会被慢慢打满，所以按"总量"再设一道闸
+# 0 = 不限制；超限一律 413，不做自动淘汰（淘汰要先删向量，属另一件事）
+MAX_UPLOAD_FILES = int(os.getenv("MAX_UPLOAD_FILES","200"))
+MAX_UPLOAD_TOTAL_MB = int(os.getenv("MAX_UPLOAD_TOTAL_MB","1024"))
+MAX_UPLOAD_TOTAL_BYTES = MAX_UPLOAD_TOTAL_MB * 1024 * 1024
+# 启动时清理孤儿 PDF（同名覆盖后旧 UUID 文件会留下，向量库里已无引用）
+# 判定依据是 chunk metadata["stored"]；旧数据没这个字段就整轮跳过，绝不猜着删
+ORPHAN_CLEANUP_ON_START = os.getenv("ORPHAN_CLEANUP_ON_START","true").lower() == "true"
+# 宽限期（秒）：刚落盘还没入库的文件不参与判定，避免与上传请求竞态
+ORPHAN_GRACE_SECONDS = int(os.getenv("ORPHAN_GRACE_SECONDS","3600"))
 # 自审循环硬上限：judge 不会主动说停，靠代码兜底防振荡
 MAX_REVISIONS = int(os.getenv("MAX_REVISIONS", "2"))
 #人工审查模式

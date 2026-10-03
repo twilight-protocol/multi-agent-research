@@ -5,11 +5,25 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from backend.ai.ingest import ingest_pdf
-from backend.config import MAX_UPLOAD_BYTES, MAX_UPLOAD_MB, UPLOAD_DIR
+from backend.config import (
+    MAX_UPLOAD_BYTES,
+    MAX_UPLOAD_FILES,
+    MAX_UPLOAD_MB,
+    MAX_UPLOAD_TOTAL_BYTES,
+    MAX_UPLOAD_TOTAL_MB,
+    UPLOAD_DIR,
+)
 from backend.ratelimit import upload_limiter
 
 router = APIRouter(prefix="/api",tags=["upload"])
 ALLOWED_SUFFIX = {".pdf"}
+
+def _upload_usage() -> tuple[int,int]:
+    """当前上传目录的（文件数，总字节）。配额判定要跟"已经用掉多少"比，光看单文件大小挡不住攒文件。"""
+    if not UPLOAD_DIR.is_dir():
+        return 0,0
+    files = list(UPLOAD_DIR.glob("*.pdf"))
+    return len(files),sum(f.stat().st_size for f in files)
 
 @router.post("/upload",dependencies=[Depends(upload_limiter)])
 async def upload_pdf(file:UploadFile=File(...)):
@@ -17,6 +31,11 @@ async def upload_pdf(file:UploadFile=File(...)):
     if Path(filename).suffix.lower() not in ALLOWED_SUFFIX:
         raise HTTPException(status_code=400,detail="只支持 PDF 文件")
     UPLOAD_DIR.mkdir(parents=True,exist_ok=True)
+    used_files,used_bytes = _upload_usage()
+    if MAX_UPLOAD_FILES and used_files >= MAX_UPLOAD_FILES:
+        raise HTTPException(status_code=413,detail=f"服务端文件数已达上限（{MAX_UPLOAD_FILES} 个），请先清理")
+    if MAX_UPLOAD_TOTAL_BYTES and used_bytes >= MAX_UPLOAD_TOTAL_BYTES:
+        raise HTTPException(status_code=413,detail=f"服务端存储已达上限（{MAX_UPLOAD_TOTAL_MB}MB），请先清理")
     stored:Path = UPLOAD_DIR / f"{uuid.uuid4().hex}.pdf"
     written = 0
     try:
@@ -26,6 +45,9 @@ async def upload_pdf(file:UploadFile=File(...)):
                 written += len(chunk)
                 if written > MAX_UPLOAD_BYTES:
                     raise HTTPException(status_code=400,detail=f"文件超过 {MAX_UPLOAD_MB}MB 上限")
+                #总量也要边写边判：落盘前的预估靠不住，这里用"已用+这次写入"做精确比较
+                if MAX_UPLOAD_TOTAL_BYTES and used_bytes + written > MAX_UPLOAD_TOTAL_BYTES:
+                    raise HTTPException(status_code=413,detail=f"服务端存储已达上限（{MAX_UPLOAD_TOTAL_MB}MB），请先清理")
                 f.write(chunk)
     except HTTPException:
         #超限：先删半截文件再往上抛，否则会被下面的 500 分支吞掉，前端只看到「服务器错误」
