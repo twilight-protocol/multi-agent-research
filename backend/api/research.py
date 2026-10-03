@@ -1,5 +1,6 @@
 import json
 import uuid
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -13,12 +14,19 @@ from backend.ratelimit import research_limiter
 router = APIRouter(prefix="/api/research", tags=["research"])
 
 NODE_LABEL = {
-    "search": "正在检索（本地知识库 + 联网）",
+    "search": "正在检索资料",   # 兜底文案，实际按 scope 换成下面那组
     "analyze": "正在分析资料",
     "write": "正在撰写报告",
     "critique": "正在自审",
     "revise": "正在按审查意见修订",
     "human_review": "等待人工终审",
+}
+
+# 检索范围 → 进度文案：让前端「图运行到哪一步」能直接看出这次联没联网
+SCOPE_LABEL = {
+    "kb": "正在检索（仅本地知识库）",
+    "web": "正在检索（仅联网）",
+    "both": "正在检索（本地知识库 + 联网）",
 }
 
 
@@ -31,6 +39,9 @@ class ResearchRequest(BaseModel):
     question: str
     #前端可复用自己生成的 thread_id（多标签页/刷新后接着看）；不传则后端发一个
     thread_id: str = ""
+    # 检索范围：kb=仅本地知识库（只问自己上传的 PDF 时用），web=仅联网，
+    # both=双路都跑。用 Literal 而不是校验代码：非法值直接被 pydantic 挡成 422
+    scope: Literal["kb", "web", "both"] = "both"
 
 
 class ResumeRequest(BaseModel):
@@ -39,11 +50,12 @@ class ResumeRequest(BaseModel):
     comment: str = ""
 
 
-def _init_state(question: str, user_id: str) -> dict:
+def _init_state(question: str, user_id: str, scope: str) -> dict:
     return {
         "question": question,
         # 检索范围：search_node 只用自己这个用户的文档
         "user_id": user_id,
+        "scope": scope,
         "search_results": [],
         "analysis": "",
         "report": "",
@@ -73,7 +85,7 @@ def _require_own_thread(user_id: str, thread_id: str) -> None:
         raise HTTPException(status_code=403, detail="无权访问该会话")
 
 
-async def _stream(graph_input, thread_id: str):
+async def _stream(graph_input, thread_id: str, scope: str = "both"):
     graph = get_graph()          
     cfg = {"configurable": {"thread_id": thread_id}}
     try:
@@ -91,7 +103,8 @@ async def _stream(graph_input, thread_id: str):
                 })
                 return
             for node in chunk:
-                yield sse_frame("progress", {"node": node, "label": NODE_LABEL.get(node, node)})
+                label = SCOPE_LABEL.get(scope, node) if node == "search" else NODE_LABEL.get(node, node)
+                yield sse_frame("progress", {"node": node, "label": label})
         #没中断 = 图自己走到 END（人已签字，或 HUMAN_REVIEW_MODE 没开 always）
         state = await graph.aget_state(cfg)
         yield sse_frame("done", {
@@ -110,7 +123,7 @@ async def research_stream(req: ResearchRequest, user_id: str = Depends(current_u
     raw = req.thread_id.strip() or uuid.uuid4().hex[:12]
     thread_id = scoped_thread_id(user_id, raw)
     return StreamingResponse(
-        _stream(_init_state(req.question, user_id), thread_id),
+        _stream(_init_state(req.question, user_id, req.scope), thread_id, req.scope),
         headers={"Cache-Control": "no-cache", "x-Accel-Buffering": "no"},
         media_type="text/event-stream",
     )

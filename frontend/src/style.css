@@ -165,6 +165,51 @@ body {
   box-shadow: 0 0 0 3px rgba(47, 111, 237, 0.14);
 }
 
+/* 检索范围分段控件：3 个固定值，比下拉少一次点击，也不用管弹层定位 */
+.ask-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ask-col textarea {
+  /* 外层变成纵向 flex 后，原来的 flex:1 会把 textarea 高度撑成 0，必须覆盖 */
+  flex: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+.scope {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.seg button {
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--fg);
+  font-size: 13px;
+}
+.seg button + button {
+  border-left: 1px solid var(--line);
+}
+.seg button.on {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
 button {
   font: inherit;
   padding: 10px 18px;

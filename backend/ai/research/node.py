@@ -9,12 +9,20 @@ from pydantic import BaseModel, Field
 from typing import Literal
 
 def search_node(state:ResearchState):
-    # 检索范围跟着提问的人走：只捞这个人自己传进向量库的文档
-    blocks: list[str] = search_local(state["question"],state["user_id"])
+    # scope 决定走哪几路：kb 只查本人上传的文档（问 PDF 内容时不该混进网络结果），
+    # web 只联网，both 才是原来的双路。被排除的那路直接不调用 = 连 embedding/
+    # 网络的耗时都省掉，不是查完再丢。
+    scope = state.get("scope") or "both"
+    blocks: list[str] = []
 
-    web = web_search.invoke({"query":state["question"]})
-    if not web.startswith(("搜索失败","未搜索到")):
-        blocks.extend(web.split("\n\n---\n\n"))
+    if scope in ("kb", "both"):
+        # 检索范围跟着提问的人走：只捞这个人自己传进向量库的文档
+        blocks.extend(search_local(state["question"],state["user_id"]))
+
+    if scope in ("web", "both"):
+        web = web_search.invoke({"query":state["question"]})
+        if not web.startswith(("搜索失败","未搜索到")):
+            blocks.extend(web.split("\n\n---\n\n"))
 
     return {"search_results":blocks}
 

@@ -7,6 +7,14 @@ import ReviewCard from "./components/ReviewCard.vue";
 import UploadPanel from "./components/UploadPanel.vue";
 
 const question = ref("");
+// 检索范围：kb=只查自己上传的文档，web=只联网，both=双路（原行为，故设为默认）
+// 值必须与后端 ResearchRequest.scope 的 Literal 一致，否则会被 pydantic 挡成 422
+const scope = ref("both");
+const SCOPES = [
+  { value: "kb", label: "仅知识库" },
+  { value: "web", label: "仅联网" },
+  { value: "both", label: "自动双路" },
+];
 const threadId = ref("");
 const running = ref(false); // 图正在跑（含 /resume 之后）
 const waiting = ref(false); // 卡在 human_review 等签字
@@ -74,7 +82,7 @@ async function start() {
   try {
     await streamResearch(
       "/api/research/stream",
-      { question: q, thread_id: threadId.value },
+      { question: q, thread_id: threadId.value, scope: scope.value },
       handlers,
     );
   } catch (e) {
@@ -121,12 +129,30 @@ async function decide({ action, comment }) {
     </header>
 
     <section class="ask">
-      <textarea
-        v-model="question"
-        rows="2"
-        placeholder="输入要研究的问题，例如：2025 年国内储能行业的竞争格局与主要玩家？"
-        @keydown.ctrl.enter="start"
-      ></textarea>
+      <div class="ask-col">
+        <!-- 先选范围再提问：切到「仅知识库」就不会再跑 web_search -->
+        <div class="scope">
+          <span>检索范围</span>
+          <div class="seg" role="group" aria-label="检索范围">
+            <button
+              v-for="s in SCOPES"
+              :key="s.value"
+              type="button"
+              :class="{ on: scope === s.value }"
+              :disabled="running"
+              @click="scope = s.value"
+            >
+              {{ s.label }}
+            </button>
+          </div>
+        </div>
+        <textarea
+          v-model="question"
+          rows="2"
+          placeholder="输入要研究的问题，例如：2025 年国内储能行业的竞争格局与主要玩家？"
+          @keydown.ctrl.enter="start"
+        ></textarea>
+      </div>
       <button
         class="primary"
         :disabled="running || !question.trim()"
