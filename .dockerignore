@@ -1,4 +1,3 @@
-# 构建上下文里不需要的一切：context 越小，平台构建越快
 .git/
 .gitignore
 .vscode/

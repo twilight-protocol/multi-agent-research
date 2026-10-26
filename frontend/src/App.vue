@@ -1,6 +1,7 @@
 <script setup>
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { streamResearch } from "./api/research";
+import { getUserId } from "./api/identity";
 import NodeProgress from "./components/NodeProgress.vue";
 import ReportView from "./components/ReportView.vue";
 import ReviewCard from "./components/ReviewCard.vue";
@@ -33,6 +34,81 @@ const stopText = computed(
   () => STOP_TEXT[stopReason.value] ?? stopReason.value,
 );
 
+// 刷新恢复：thread_id 只存在 ref 里，一刷新就没了 —— 后端断点还在，
+// 但前端连「去问哪条线程」的钥匙都丢了。所以钥匙要落在 localStorage。
+const STATE_KEY = "mar_last_run";
+const restored = ref(false);
+
+function saveRun() {
+  if (!threadId.value) return;
+  localStorage.setItem(
+    STATE_KEY,
+    JSON.stringify({
+      thread_id: threadId.value,
+      question: question.value,
+      scope: scope.value,
+    }),
+  );
+}
+
+function clearRun() {
+  localStorage.removeItem(STATE_KEY);
+}
+
+// 只恢复两种状态：跑完了（next 为空）、卡在人工终审。
+// 中途断掉的图没有续跑接口，硬恢复只会给一个走不动的半成品。
+async function restore() {
+  let saved = null;
+  try {
+    saved = JSON.parse(localStorage.getItem(STATE_KEY) || "null");
+  } catch {
+    saved = null;
+  }
+  if (!saved?.thread_id) return;
+
+  try {
+    const res = await fetch(
+      `/api/research/state?thread_id=${encodeURIComponent(saved.thread_id)}`,
+      { headers: { "X-User-Id": getUserId() } },
+    );
+    if (!res.ok) {
+      clearRun(); // 403（换了身份）/ 404（断点没了）：钥匙作废
+      return;
+    }
+    const d = await res.json();
+    threadId.value = d.thread_id;
+    question.value = saved.question || d.question || "";
+    scope.value = saved.scope || "both";
+
+    if (d.awaiting_review) {
+      // 重建终审卡片：字段与 interrupt 帧保持一致，ReviewCard 不用改
+      review.value = {
+        draft: d.report,
+        issues: d.issues,
+        revision_count: d.revision_count,
+        limit_reached: d.limit_reached,
+        thread_id: d.thread_id,
+      };
+      waiting.value = true;
+      restored.value = true;
+      return;
+    }
+
+    if (!d.pending.length && d.report) {
+      report.value = d.report;
+      stopReason.value = d.stop_reason || "";
+      restored.value = true;
+      return;
+    }
+
+    clearRun();
+  } catch {
+    clearRun();
+  }
+}
+
+onMounted(restore);
+
 // thread_id 由前端生成：interrupt 帧里不带 thread_id，而 /resume 必须靠它找回中断点
 function newThreadId() {
   return (
@@ -49,6 +125,8 @@ function reset() {
   stopReason.value = "";
   error.value = "";
   waiting.value = false;
+  restored.value = false;
+  clearRun(); // 新一轮开始，旧断点不再作为恢复目标
 }
 
 // 四个事件与后端 sse_frame 一一对应
@@ -61,12 +139,14 @@ const handlers = {
     threadId.value = d.thread_id ?? threadId.value;
     waiting.value = true;
     running.value = false;
+    saveRun(); // 卡在终审时刷新，靠这把钥匙回来
   },
   done: (d) => {
     report.value = d.report;
     stopReason.value = d.stop_reason;
     threadId.value = d.thread_id; // 以后端返回的为准
     running.value = false;
+    saveRun();
   },
   error: (d) => {
     error.value = d.detail;
@@ -122,6 +202,7 @@ async function decide({ action, comment }) {
       <div class="right-side">
         <span v-if="running" class="live"><i></i>图运行中</span>
         <span v-else-if="waiting" class="live warn-live"><i></i>等待终审</span>
+        <span v-else-if="restored" class="live"><i></i>已恢复上次会话</span>
         <code v-if="threadId" class="tid" :title="threadId"
           >thread: {{ threadId }}</code
         >

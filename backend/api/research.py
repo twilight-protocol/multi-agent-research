@@ -8,6 +8,7 @@ from langgraph.types import Command
 from pydantic import BaseModel
 
 from backend.ai.research.service import get_graph
+from backend.config import MAX_REVISIONS
 from backend.identity import current_user
 from backend.ratelimit import research_limiter
 
@@ -141,5 +142,46 @@ async def research_resume(req: ResumeRequest, user_id: str = Depends(current_use
         headers={"Cache-Control": "no-cache", "x-Accel-Buffering": "no"},
         media_type="text/event-stream",
     )
+
+
+@router.get("/state")
+async def research_state(thread_id: str, user_id: str = Depends(current_user)):
+    """按 thread_id 读回最近一次断点状态 —— 刷新页面后恢复报告/终审卡片用。
+
+    这是 checkpointer 的**读侧**：以前只有写（每步落盘）和 /resume 时隐式读，
+    没有任何接口把状态暴露给前端，所以刷新即空白 —— 数据在库里，只是没人取。
+
+    不挂限流：纯读、单次查询，和「跑一次烧 8~20 次 LLM」的 /stream 不是一类开销；
+    挂上去反而会被 5 次/分的桶误伤（刷新几次就 429）。
+    """
+    _require_own_thread(user_id, thread_id)
+    snapshot = await get_graph().aget_state(
+        {"configurable": {"thread_id": thread_id}}
+    )
+    values = snapshot.values or {}
+    if not values:
+        # 没跑过 / 断点被清掉 → 404。返回空 200 会让前端没法区分
+        # 「恢复失败」与「报告本身为空」，只能猜。
+        raise HTTPException(status_code=404, detail="会话不存在或断点已丢失")
+
+    revision_count = values.get("revision_count", 0) or 0
+    pending = list(snapshot.next or ())
+    return {
+        "thread_id": thread_id,
+        "question": values.get("question", ""),
+        "report": values.get("report", ""),
+        "stop_reason": values.get("stop_reason", ""),
+        "revision_count": revision_count,
+        "issues": values.get("issues", []),
+        "verdict": values.get("verdict", ""),
+        "human_action": values.get("human_action", ""),
+        "human_feedback": values.get("human_feedback", ""),
+        # 断点下一步：[] = 已走到 END；["human_review"] = 卡在等人签字
+        "pending": pending,
+        "awaiting_review": "human_review" in pending,
+        # limit_reached 由后端算：前端不该硬编码 MAX_REVISIONS=2，
+        # 否则改配置就两头不一致
+        "limit_reached": revision_count >= MAX_REVISIONS,
+    }
 
 

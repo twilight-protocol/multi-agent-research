@@ -15,7 +15,9 @@ AI教练指令.md
 面试八股.md
 面试台账.md*
 scripts/
-
+.workbuddy/
+reports/
+tests/
 
 # ---------- 运行时数据（二进制 / 大文件，不进版本库）----------
 data/chroma_db/

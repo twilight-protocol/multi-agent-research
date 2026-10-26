@@ -26,5 +26,4 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      # lifespan 里要先建 AsyncSqliteSaver、再编译图，比项目1 的启动稍慢
       start_period: 60s

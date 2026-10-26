@@ -16,9 +16,6 @@ if not DASHSCOPE_API_KEY:
     raise RuntimeError("缺少 DASHSCOPE_API_KEY")
 
 logger = logging.getLogger("mar")
-#只 setLevel 还不够：这个 logger 没有 handler，记录会冒泡到根 logger，
-#而 uvicorn 只配了自己的 logger，根 logger 无 handler → 走 lastResort（级别 WARNING）→ INFO 被丢。
-#于是 docker logs 里既看不到「清理了几个」也看不到「跳过了」，清理就失去可审计性。
 logger.setLevel(logging.INFO)
 if not logger.handlers:
     _handler = logging.StreamHandler()

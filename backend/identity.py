@@ -1,12 +1,3 @@
-"""用户身份：只做「数据归属」，不做「权限校验」。
-
-为什么不用登录：本项目是单实例 Demo，没有用户表、没有密码、没有 token 签发。
-客户端首次访问时生成一个 uuid 存在 localStorage，之后每个请求用 X-User-Id 头带上。
-后端只负责校验格式 + 把它当作「数据归属标签」写进向量库 / 上传目录 / thread_id。
-
-⚠️ 这不是安全边界：header 是客户端自报的，改一下就能冒充别人。
-   要真隔离，得改成服务端签发并校验的凭证（JWT / session）。面试口径见 面试台账.md §5.3.3。
-"""
 import re
 
 from fastapi import Header, HTTPException
