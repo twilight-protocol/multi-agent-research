@@ -110,6 +110,11 @@ async function restore() {
       return;
     }
 
+    // 跑到一半断掉：没有续跑接口，硬恢复只会给一个走不动的半成品。
+    // 但也不能静默清空 —— 要明确告诉用户「为什么没恢复」。
+    restoreError.value = d.pending.length
+      ? `上次任务中断在「${d.pending.join(" → ")}」，没有续跑入口，请重新提问`
+      : "上次会话没有可恢复的报告";
     clearRun();
   } catch (e) {
     // 网络错误不清钥匙：下次刷新还能再试，也给用户一个「重试」按钮
