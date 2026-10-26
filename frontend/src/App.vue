@@ -24,6 +24,10 @@ const report = ref("");
 const review = ref(null); // interrupt 帧的 payload
 const stopReason = ref("");
 const error = ref("");
+// 检索降级说明：联网没生效时后端会带回来，必须显示——否则用户只看到「没有网址」
+const searchNote = ref("");
+// 恢复失败要说清原因（403/404/网络），不要静默清空让用户以为「刷新必丢」
+const restoreError = ref("");
 
 // stop_reason 是后端给的「报告是怎么停下来的」，放在标题旁做溯源
 const STOP_TEXT = {
@@ -72,10 +76,15 @@ async function restore() {
       { headers: { "X-User-Id": getUserId() } },
     );
     if (!res.ok) {
-      clearRun(); // 403（换了身份）/ 404（断点没了）：钥匙作废
+      // 403 = 换了身份（localStorage 里的 uid 和会话归属对不上）
+      // 404 = 断点被清 / 服务端数据卷丢了
+      restoreError.value = `上次会话无法恢复（HTTP ${res.status}）`;
+      clearRun(); // 这两种是永久失败，钥匙作废
       return;
     }
     const d = await res.json();
+    restoreError.value = "";
+    searchNote.value = d.search_note || "";
     threadId.value = d.thread_id;
     question.value = saved.question || d.question || "";
     scope.value = saved.scope || "both";
@@ -102,8 +111,9 @@ async function restore() {
     }
 
     clearRun();
-  } catch {
-    clearRun();
+  } catch (e) {
+    // 网络错误不清钥匙：下次刷新还能再试，也给用户一个「重试」按钮
+    restoreError.value = `上次会话恢复失败：${e?.message || e}`;
   }
 }
 
@@ -126,12 +136,22 @@ function reset() {
   error.value = "";
   waiting.value = false;
   restored.value = false;
+  searchNote.value = "";
+  restoreError.value = "";
   clearRun(); // 新一轮开始，旧断点不再作为恢复目标
 }
 
 // 四个事件与后端 sse_frame 一一对应
 const handlers = {
-  progress: (d) => log.value.push(d),
+  progress: (d) => {
+    log.value.push(d);
+    // 进度帧带 scoped thread_id：第一个节点跑完就把钥匙落盘，
+    // 不用等 interrupt/done（中断帧万一没送到，刷新也不至于完全失联）
+    if (d.thread_id) {
+      threadId.value = d.thread_id;
+      saveRun();
+    }
+  },
   interrupt: (d) => {
     review.value = d;
     // 必须收下带前缀的 thread_id：手上这份还是「原始 id」，
@@ -139,6 +159,7 @@ const handlers = {
     threadId.value = d.thread_id ?? threadId.value;
     waiting.value = true;
     running.value = false;
+    searchNote.value = d.search_note || "";
     saveRun(); // 卡在终审时刷新，靠这把钥匙回来
   },
   done: (d) => {
@@ -146,6 +167,7 @@ const handlers = {
     stopReason.value = d.stop_reason;
     threadId.value = d.thread_id; // 以后端返回的为准
     running.value = false;
+    searchNote.value = d.search_note || "";
     saveRun();
   },
   error: (d) => {
@@ -244,6 +266,13 @@ async function decide({ action, comment }) {
     </section>
 
     <p v-if="error" class="error">请求失败：{{ error }}</p>
+    <!-- 刷新恢复失败：必须显式说出来，否则用户只会看到「一片空白」 -->
+    <p v-if="restoreError" class="error">
+      {{ restoreError }}
+      <button class="mini" @click="restore">重试</button>
+    </p>
+    <!-- 联网没生效（无 Key / 配额用完 / 无结果）：不算错误，但不说明白就会被当成模型 bug -->
+    <p v-if="searchNote" class="warn">{{ searchNote }}</p>
 
     <div class="cols">
       <aside class="left">

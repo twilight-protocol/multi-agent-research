@@ -1,3 +1,5 @@
+import re
+
 from backend.ai.research.state import ResearchState
 from backend.config import MAX_REVISIONS
 from backend.ai.research.tools import web_search, search_local
@@ -8,12 +10,14 @@ from langgraph.types import interrupt
 from pydantic import BaseModel, Field
 from typing import Literal
 
+
 def search_node(state:ResearchState):
     # scope 决定走哪几路：kb 只查本人上传的文档（问 PDF 内容时不该混进网络结果），
     # web 只联网，both 才是原来的双路。被排除的那路直接不调用 = 连 embedding/
     # 网络的耗时都省掉，不是查完再丢。
     scope = state.get("scope") or "both"
     blocks: list[str] = []
+    note = ""
 
     if scope in ("kb", "both"):
         # 检索范围跟着提问的人走：只捞这个人自己传进向量库的文档
@@ -21,14 +25,22 @@ def search_node(state:ResearchState):
 
     if scope in ("web", "both"):
         web = web_search.invoke({"query":state["question"]})
-        if not web.startswith(("搜索失败","未搜索到")):
+        if web.startswith(("搜索失败","未搜索到")):
+            # 以前这里静默丢弃：报告里只剩本地出处，用户以为「模型不给网址」。
+            # 把失败原因带进 state，一路传到前端提示条。
+            note = f"联网检索未生效：{web}"
+        else:
             blocks.extend(web.split("\n\n---\n\n"))
 
-    return {"search_results":blocks}
+    return {"search_results":blocks, "search_note":note}
 
 ANALYZE_PROMPT = (
-    "你是资料分析师。仅依据下列检索片段回答，禁止使用片段之外的知识，"
-    "禁止编造。输出格式：1) 要点清单（每条末尾标 [片段编号]）2) 矛盾或不确定处 3) 信息缺口。"
+    "你是资料分析师。仅依据下列检索片段回答，禁止使用片段之外的知识，禁止编造。"
+    "输出格式：1) 要点清单 2) 矛盾或不确定处 3) 信息缺口。"
+    "引用规则（必须遵守）：每条要点末尾**原样照抄**该片段开头方括号里的出处标记，"
+    "例如 [test.pdf 第3页] 或 [web: https://example.com/a1]。"
+    "禁止自造编号或缩写（如 [片段1]、[a1]、[a2-a5]、[搜索结果]），"
+    "禁止改写、截断或省略 URL；一个要点引用多个片段时，把各自的完整出处依次列出。"
     "若片段为空，只输出「资料不足」并说明缺什么，不要臆测。"
 )
 
@@ -53,6 +65,9 @@ REPORT_PROMPT = (
     "你是行业研究员。基于分析笔记撰写结构化报告。"
     "每条关键发现若在笔记中有 [文件名 第N页] 或 [web: url] 出处，"
     "必须原样放进该条的 evidence 字段，不得新增笔记之外的出处，也不要把出处写进 point。"
+    "evidence 只接受两种形态：[文件名 第N页] 或 [web: https://…]。"
+    "[片段1]、[a1]、[a2-a5]、[搜索结果] 这类内部编号不是出处，一律不许写进 evidence；"
+    "若笔记里找不到这两种合法出处，就把 evidence 留成空数组，不要编一个凑数。"
     "evidence 必须拆开写：每个数组元素只放一条出处，禁止用「；」把多条出处拼进同一个元素；"
     "页码范围照抄笔记原文（如 第1-2页）。"
     "summary 与 conclusion 是纯文字段落，禁止出现任何方括号——"
@@ -78,10 +93,29 @@ report_prompt = ChatPromptTemplate.from_messages([
 
 report_lcel = report_prompt | low_llm.with_structured_output(ReportSchema)
 
+# 只放行两种可核验出处；模型自造的 [a1] / [片段1] / [搜索结果] 一律丢掉。
+# Prompt 里已经写了一遍，但「代码兜底」比「再求模型一次」可靠 —— 这是本项目一贯做法。
+_CITE_RE = re.compile(
+    r"^(?:\[[^\[\]]*?第\s*\d+\s*(?:[-–—~至]\s*\d+\s*)?页\]|\[web:\s*https?://\S+\])$",
+    re.I,
+)
+
+
+def _clean_evidence(items: list[str]) -> list[str]:
+    """拆开「；」拼接、去重、丢掉非出处形态。宁可少一条出处，也不给假链接。"""
+    out: list[str] = []
+    for raw in items or []:
+        for part in re.split(r"[；;、]", raw or ""):
+            part = part.strip()
+            if part and _CITE_RE.match(part) and part not in out:
+                out.append(part)
+    return out
+
+
 def _render_report(report:ReportSchema) -> str:
     lines = ["## 概述",report.summary,"","## 关键发现"]
     for f in report.findings:
-        evidence = " ".join(f.evidence)
+        evidence = " ".join(_clean_evidence(f.evidence))
         lines.append(f"- {f.point}" + (f" {evidence}" if evidence else ""))
     lines += ["","## 结论",report.conclusion]
     return "\n".join(lines)
@@ -97,7 +131,8 @@ CRITIQUE_PROMPT = (
     "你是严格的审稿人，只做审查，绝不重写。逐条核对草稿是否真的被检索片段支撑。"
     "只检查三类硬问题："
     "① 断言无出处：关键发现没有任何 [文件名 第N页] 或 [web: url] 支撑；"
-    "② 出处与断言不符：所引片段其实不支持该结论；"
+    "② 出处与断言不符：所引片段其实不支持该结论，"
+    "或 evidence 写的是 [片段1]/[a1] 这类内部编号而不是可核验出处；"
     "③ 覆盖不足：分析笔记里已写明的矛盾或信息缺口，报告完全没提。"
     "禁止提出风格类意见（措辞、篇幅、排版）。每条意见必须给出可执行的修改动作，"
     "让别人不看原稿就能照做。三类问题都不存在时，verdict 必须为 pass 且 issues 为空数组。"

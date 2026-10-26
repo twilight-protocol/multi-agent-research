@@ -58,6 +58,7 @@ def _init_state(question: str, user_id: str, scope: str) -> dict:
         "user_id": user_id,
         "scope": scope,
         "search_results": [],
+        "search_note": "",
         "analysis": "",
         "report": "",
         "critique": "",
@@ -101,11 +102,14 @@ async def _stream(graph_input, thread_id: str, scope: str = "both"):
                     "issues": st.values.get("issues", []),
                     "revision_count": st.values.get("revision_count", 0),
                     "stop_reason": st.values.get("stop_reason", ""),
+                    "search_note": st.values.get("search_note", ""),
                 })
                 return
             for node in chunk:
                 label = SCOPE_LABEL.get(scope, node) if node == "search" else NODE_LABEL.get(node, node)
-                yield sse_frame("progress", {"node": node, "label": label})
+                # 进度帧也带 thread_id：钥匙在「第一个节点跑完」就落进 localStorage，
+                # 不必等 interrupt/done（否则中断帧一旦没送到，刷新就完全找不到会话）
+                yield sse_frame("progress", {"node": node, "label": label, "thread_id": thread_id})
         #没中断 = 图自己走到 END（人已签字，或 HUMAN_REVIEW_MODE 没开 always）
         state = await graph.aget_state(cfg)
         yield sse_frame("done", {
@@ -114,6 +118,7 @@ async def _stream(graph_input, thread_id: str, scope: str = "both"):
             #前端靠这两个字段显示「审查通过 / AI 额度用尽待放行」，不是重复信息
             "stop_reason": state.values.get("stop_reason", ""),
             "revision_count": state.values.get("revision_count", 0),
+            "search_note": state.values.get("search_note", ""),
         })
     except Exception as e:
         yield sse_frame("error", {"detail": str(e)})
@@ -176,6 +181,8 @@ async def research_state(thread_id: str, user_id: str = Depends(current_user)):
         "verdict": values.get("verdict", ""),
         "human_action": values.get("human_action", ""),
         "human_feedback": values.get("human_feedback", ""),
+        # 检索降级说明（如「联网检索未生效」）：刷新恢复时也要一起带回来
+        "search_note": values.get("search_note", ""),
         # 断点下一步：[] = 已走到 END；["human_review"] = 卡在等人签字
         "pending": pending,
         "awaiting_review": "human_review" in pending,
